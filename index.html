@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Guppy Evolution Simulator</title>
+<style>
+  /* ── Design tokens ─────────────────────────────────────────────────────── */
+  :root {
+    --water-deep:   #0a1628;
+    --water-mid:    #0d2140;
+    --water-light:  #1a3a5c;
+    --water-surface:#1e4976;
+    --accent-teal:  #2dd4bf;
+    --accent-amber: #f59e0b;
+    --accent-coral: #f87171;
+    --accent-green: #4ade80;
+    --text-primary: #e2e8f0;
+    --text-secondary:#94a3b8;
+    --text-dim:     #475569;
+    --panel-bg:     rgba(13,33,64,0.92);
+    --panel-border: rgba(45,212,191,0.18);
+    --panel-border-hover: rgba(45,212,191,0.45);
+    --btn-bg:       rgba(45,212,191,0.12);
+    --btn-hover:    rgba(45,212,191,0.24);
+    --danger:       #f87171;
+    --warn:         #fbbf24;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--water-deep);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Header ─────────────────────────────────────────────────────────────── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--panel-border);
+    background: var(--panel-bg);
+    backdrop-filter: blur(8px);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .header-left { display: flex; align-items: baseline; gap: 12px; }
+  header h1 {
+    font-family: 'Georgia', serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: var(--accent-teal);
+  }
+  header h1 span { color: var(--text-secondary); font-weight: 400; font-size: 0.8rem; }
+  .gen-badge {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    background: rgba(45,212,191,0.08);
+    border: 1px solid var(--panel-border);
+    border-radius: 4px;
+    padding: 2px 8px;
+  }
+  .gen-badge b { color: var(--accent-teal); font-size: 0.9rem; }
+
+  /* ── Layout ─────────────────────────────────────────────────────────────── */
+  .app {
+    display: grid;
+    grid-template-columns: 260px 1fr 280px;
+    grid-template-rows: auto 1fr;
+    height: calc(100vh - 53px);
+    gap: 0;
+  }
+
+  /* ── Panels ─────────────────────────────────────────────────────────────── */
+  .panel {
+    background: var(--panel-bg);
+    border-right: 1px solid var(--panel-border);
+    overflow-y: auto;
+    padding: 16px;
+  }
+  .panel:last-child { border-right: none; border-left: 1px solid var(--panel-border); }
+  .panel-title {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--panel-border);
+  }
+
+  /* ── Controls (left panel) ───────────────────────────────────────────────── */
+  .control-group { margin-bottom: 18px; }
+  .control-group-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent-teal);
+    margin-bottom: 10px;
+    opacity: 0.8;
+  }
+  .slider-row {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 9px;
+  }
+  .slider-row label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    width: 110px;
+    flex-shrink: 0;
+    line-height: 1.3;
+  }
+  .slider-row input[type=range] {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 3px;
+    background: var(--water-surface);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  .slider-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--accent-teal);
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  .slider-row input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.3); }
+  .slider-val {
+    font-size: 0.68rem;
+    color: var(--accent-teal);
+    width: 34px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Playback buttons */
+  .btn-row { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+  .btn {
+    flex: 1;
+    padding: 7px 10px;
+    border: 1px solid var(--panel-border);
+    border-radius: 5px;
+    background: var(--btn-bg);
+    color: var(--text-primary);
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: var(--btn-hover); border-color: var(--panel-border-hover); }
+  .btn.primary { background: rgba(45,212,191,0.2); border-color: var(--accent-teal); color: var(--accent-teal); }
+  .btn.primary:hover { background: rgba(45,212,191,0.32); }
+  .btn.danger { background: rgba(248,113,113,0.12); border-color: var(--danger); color: var(--danger); }
+  .btn.danger:hover { background: rgba(248,113,113,0.24); }
+  .btn.warn { background: rgba(251,191,36,0.12); border-color: var(--warn); color: var(--warn); }
+  .btn.warn:hover { background: rgba(251,191,36,0.24); }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .speed-label {
+    font-size: 0.65rem; color: var(--text-dim);
+    text-align: center; margin-bottom: 8px;
+  }
+  .speed-row { display: flex; gap: 4px; margin-bottom: 14px; }
+  .speed-btn {
+    flex: 1; padding: 5px 4px;
+    border: 1px solid var(--panel-border);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.68rem; font-weight: 600;
+    cursor: pointer; transition: all 0.12s;
+  }
+  .speed-btn.active { background: var(--btn-hover); border-color: var(--accent-teal); color: var(--accent-teal); }
+  .speed-btn:hover { border-color: var(--panel-border-hover); }
+
+  /* Event log */
+  .event-log {
+    margin-top: 14px;
+    max-height: 140px;
+    overflow-y: auto;
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    line-height: 1.7;
+  }
+  .event-log .ev { color: var(--text-secondary); }
+  .event-log .ev-disease { color: var(--danger); }
+  .event-log .ev-mutation { color: var(--accent-amber); }
+  .event-log .ev-extinction { color: var(--danger); font-weight: 700; }
+
+  /* ── Pond canvas ─────────────────────────────────────────────────────────── */
+  .pond-wrap {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(180deg, #0d2140 0%, #0a1628 100%);
+  }
+  #pondCanvas {
+    width: 100%; height: 100%;
+    display: block;
+  }
+  .pond-overlay {
+    position: absolute; bottom: 12px; left: 12px;
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  .badge {
+    font-size: 0.63rem; font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid;
+    backdrop-filter: blur(4px);
+  }
+  .badge-pop  { color: var(--accent-green); border-color: rgba(74,222,128,0.3); background: rgba(74,222,128,0.1); }
+  .badge-fit  { color: var(--accent-teal);  border-color: rgba(45,212,191,0.3); background: rgba(45,212,191,0.1); }
+  .badge-disease { color: var(--danger); border-color: rgba(248,113,113,0.4); background: rgba(248,113,113,0.15); display:none; }
+
+  /* ── Charts panel ───────────────────────────────────────────────────────── */
+  .charts-panel {
+    display: flex; flex-direction: column; gap: 0;
+    overflow-y: auto;
+  }
+  .chart-block {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--panel-border);
+    flex-shrink: 0;
+  }
+  .chart-label {
+    font-size: 0.6rem; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--text-dim); margin-bottom: 6px;
+  }
+  .chart-sublabel {
+    font-size: 0.62rem; color: var(--text-secondary);
+    margin-bottom: 8px; line-height: 1.4;
+  }
+  canvas.minichart { width: 100%; height: 72px; display: block; }
+
+  /* Stat rows */
+  .stat-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 6px; margin-top: 8px;
+  }
+  .stat-cell {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--panel-border);
+    border-radius: 5px; padding: 6px 8px;
+  }
+  .stat-cell-label { font-size: 0.58rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.07em; }
+  .stat-cell-val { font-size: 0.88rem; font-weight: 700; color: var(--text-primary); margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .stat-cell-val.up   { color: var(--accent-green); }
+  .stat-cell-val.down { color: var(--danger); }
+
+  /* Allele freq bars */
+  .allele-bars { display: flex; flex-direction: column; gap: 5px; margin-top: 4px; }
+  .allele-row { display: flex; align-items: center; gap: 6px; }
+  .allele-name { font-size: 0.62rem; color: var(--text-secondary); width: 80px; flex-shrink: 0; }
+  .allele-track {
+    flex: 1; height: 6px; background: var(--water-surface); border-radius: 3px; overflow: hidden;
+  }
+  .allele-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+  .allele-pct { font-size: 0.6rem; color: var(--text-dim); width: 30px; text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* ── Extinction overlay ─────────────────────────────────────────────────── */
+  #extinctOverlay {
+    display: none;
+    position: absolute; inset: 0;
+    background: rgba(10,22,40,0.85);
+    backdrop-filter: blur(6px);
+    align-items: center; justify-content: center;
+    flex-direction: column; gap: 16px;
+    z-index: 50;
+  }
+  #extinctOverlay.show { display: flex; }
+  #extinctOverlay h2 { font-family: 'Georgia', serif; font-size: 1.6rem; color: var(--danger); }
+  #extinctOverlay p  { font-size: 0.8rem; color: var(--text-secondary); text-align: center; max-width: 300px; }
+
+  /* ── Tooltip ────────────────────────────────────────────────────────────── */
+  #tooltip {
+    position: absolute; pointer-events: none;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border-hover);
+    border-radius: 6px; padding: 8px 10px;
+    font-size: 0.68rem; color: var(--text-primary);
+    line-height: 1.7; max-width: 200px;
+    display: none; z-index: 200;
+  }
+  #tooltip b { color: var(--accent-teal); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--water-surface); border-radius: 2px; }
+
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; grid-template-rows: auto; height: auto; }
+    .panel { border-right: none; border-bottom: 1px solid var(--panel-border); }
+    .pond-wrap { height: 55vw; min-height: 260px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <h1>Guppy Evolution Simulator <span>Poecilia reticulata</span></h1>
+    <div class="gen-badge">Generation <b id="genNum">0</b></div>
+  </div>
+  <div class="gen-badge" id="popBadge">Population <b id="popNum">80</b></div>
+</header>
+
+<div class="app">
+
+  <!-- ── LEFT: Controls ───────────────────────────────────────────────────── -->
+  <div class="panel" id="controlPanel">
+    <div class="panel-title">Simulation controls</div>
+
+    <div class="btn-row">
+      <button class="btn primary" id="btnPlay">▶ Run</button>
+      <button class="btn" id="btnStep">Step</button>
+      <button class="btn" id="btnReset">Reset</button>
+    </div>
+
+    <div class="speed-label">Simulation speed</div>
+    <div class="speed-row">
+      <button class="speed-btn active" data-ms="900">0.5×</button>
+      <button class="speed-btn" data-ms="450">1×</button>
+      <button class="speed-btn" data-ms="180">2×</button>
+      <button class="speed-btn" data-ms="60">5×</button>
+    </div>
+
+    <!-- Water conditions -->
+    <div class="control-group">
+      <div class="control-group-label">Water conditions</div>
+      <div class="slider-row">
+        <label>Temperature (°C)</label>
+        <input type="range" id="sl_temp" min="10" max="38" step="1" value="22"/>
+        <span class="slider-val" id="sv_temp">22°</span>
+      </div>
+      <div class="slider-row">
+        <label>Water clarity</label>
+        <input type="range" id="sl_clarity" min="0" max="1" step="0.05" value="0.7"/>
+        <span class="slider-val" id="sv_clarity">0.70</span>
+      </div>
+      <div class="slider-row">
+        <label>Current strength</label>
+        <input type="range" id="sl_current" min="0" max="1" step="0.05" value="0.2"/>
+        <span class="slider-val" id="sv_current">0.20</span>
+      </div>
+    </div>
+
+    <!-- Biotic pressures -->
+    <div class="control-group">
+      <div class="control-group-label">Biotic pressures</div>
+      <div class="slider-row">
+        <label>Predator pressure</label>
+        <input type="range" id="sl_pred" min="0" max="1" step="0.05" value="0.3"/>
+        <span class="slider-val" id="sv_pred">0.30</span>
+      </div>
+      <div class="slider-row">
+        <label>Mate selectivity</label>
+        <input type="range" id="sl_mate" min="0" max="1" step="0.05" value="0.5"/>
+        <span class="slider-val" id="sv_mate">0.50</span>
+      </div>
+      <div class="btn-row" style="margin-top:8px">
+        <button class="btn danger" id="btnDisease">⚠ Trigger Disease</button>
+      </div>
+    </div>
+
+    <!-- Resources -->
+    <div class="control-group">
+      <div class="control-group-label">Resources</div>
+      <div class="slider-row">
+        <label>Food density</label>
+        <input type="range" id="sl_food" min="0.05" max="1" step="0.05" value="0.7"/>
+        <span class="slider-val" id="sv_food">0.70</span>
+      </div>
+    </div>
+
+    <!-- Event log -->
+    <div class="panel-title" style="margin-top:4px">Event log</div>
+    <div class="event-log" id="eventLog">
+      <div class="ev">Generation 0 — population initialised.</div>
+    </div>
+  </div>
+
+  <!-- ── CENTRE: Pond canvas ──────────────────────────────────────────────── -->
+  <div class="pond-wrap" id="pondWrap">
+    <canvas id="pondCanvas"></canvas>
+
+    <div class="pond-overlay">
+      <div class="badge badge-pop">Pop: <span id="overlayPop">80</span></div>
+      <div class="badge badge-fit">Avg fitness: <span id="overlayFit">—</span></div>
+      <div class="badge badge-disease" id="diseaseBadge">⚠ Disease active</div>
+    </div>
+
+    <div id="extinctOverlay">
+      <h2>Extinction</h2>
+      <p>The population collapsed. Environmental pressures were too great for the gene pool to adapt in time.</p>
+      <button class="btn primary" id="btnResetExtinct">Start new population</button>
+    </div>
+
+    <div id="tooltip"></div>
+  </div>
+
+  <!-- ── RIGHT: Charts ────────────────────────────────────────────────────── -->
+  <div class="panel charts-panel" id="chartsPanel">
+    <div class="panel-title" style="margin:0;padding:14px 14px 8px">Population &amp; fitness</div>
+
+    <!-- Population size over time -->
+    <div class="chart-block">
+      <div class="chart-label">Population size</div>
+      <canvas class="minichart" id="chartPop"></canvas>
+    </div>
+
+    <!-- Avg fitness score -->
+    <div class="chart-block">
+      <div class="chart-label">Avg fitness score</div>
+      <canvas class="minichart" id="chartFit"></canvas>
+    </div>
+
+    <!-- Coloration -->
+    <div class="chart-block">
+      <div class="chart-label">Color intensity (avg)</div>
+      <div class="chart-sublabel">Drops under high predation — the core Trinidad guppy dynamic.</div>
+      <canvas class="minichart" id="chartColor"></canvas>
+    </div>
+
+    <!-- Body size -->
+    <div class="chart-block">
+      <div class="chart-label">Body size (avg)</div>
+      <canvas class="minichart" id="chartBody"></canvas>
+    </div>
+
+    <!-- Shoaling vs foraging -->
+    <div class="chart-block">
+      <div class="chart-label">Behavior — shoaling vs foraging</div>
+      <canvas class="minichart" id="chartBehav"></canvas>
+    </div>
+
+    <!-- Allele frequencies -->
+    <div class="chart-block">
+      <div class="chart-label">Allele frequencies</div>
+      <div class="chart-sublabel">Fraction of dominant alleles in the gene pool. Watch locked traits emerge.</div>
+      <div class="allele-bars" id="alleleBars"></div>
+    </div>
+
+    <!-- Stats grid -->
+    <div class="chart-block" style="border-bottom:none">
+      <div class="chart-label">Current generation</div>
+      <div class="stat-grid" id="statGrid">
+        <div class="stat-cell"><div class="stat-cell-label">Survival rate</div><div class="stat-cell-val" id="st_surv">—</div></div>
+        <div class="stat-cell"><div class="stat-cell-label">Avg energy net</div><div class="stat-cell-val" id="st_energy">—</div></div>
+        <div class="stat-cell"><div class="stat-cell-label">Detection risk</div><div class="stat-cell-val" id="st_detect">—</div></div>
+        <div class="stat-cell"><div class="stat-cell-label">Sex ratio M:F</div><div class="stat-cell-val" id="st_sex">—</div></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- .app -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════════
+// SIMULATION ENGINE (inlined — same logic as simulation.js)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const CONFIG = {
+  INITIAL_POPULATION:   80,
+  MAX_POPULATION:       300,
+  MIN_POPULATION:       5,
+  MAX_AGE_GENERATIONS:  4,
+  MUTATION_RATE:        0.02,
+  MUTATION_MAGNITUDE:   0.15,
+  NEW_TRAIT_CHANCE:     0.005,
+  DISEASE_BASE_CHANCE:  0.05,
+  DISEASE_MORTALITY:    0.25,
+  DISEASE_ENERGY_DRAIN: 0.40,
+  BASE_OFFSPRING:       3,
+  MATE_SELECT_WEIGHT:   0.6,
+  FITNESS_WEIGHTS: { energy_net: 0.35, survival_probability: 0.40, reproductive_opportunity: 0.25 },
+  LOCUS_DOMINANCE: {
+    color_intensity: "dominant",
+    body_size:       "codominant",
+    fin_size:        "dominant",
+    tail_pattern:    "incomplete",
+    shoaling:        "codominant",
+    foraging:        "codominant",
+    maturation:      "dominant",
+  },
+  LOCKED_TRAITS: ["tail_pattern", "fin_size"],
+};
+
+const DEFAULT_ENVIRONMENT = {
+  temperature: 22, water_clarity: 0.7, current_strength: 0.2,
+  predator_pressure: 0.3, mate_selectivity: 0.5, population_density: 0.4,
+  food_density: 0.7, food_type: "algae",
+  disease_active: false, disease_severity: 0.0,
+};
+
+function clamp(v, mn=0, mx=1){ return Math.min(mx, Math.max(mn, v)); }
+function normalise(v,mn,mx){ return clamp((v-mn)/(mx-mn)); }
+function lerp(a,b,t){ return a+(b-a)*clamp(t); }
+function rnd(v,dp=4){ return Math.round(v*10**dp)/10**dp; }
+
+function expressLocus(locus, dom) {
+  const dc = (locus[0]?1:0)+(locus[1]?1:0);
+  if(dom==="dominant")   return dc>=1?1.0:0.0;
+  if(dom==="codominant") return dc*0.5;
+  if(dom==="incomplete") return dc===2?1.0:dc===1?0.6:0.2;
+  return dc*0.5;
+}
+
+function randFoundingLocus(locked=false){
+  if(locked) return [false,false];
+  const r=Math.random();
+  if(r<0.20) return [true,true];
+  if(r<0.65) return [true,false];
+  return [false,false];
+}
+
+function inheritLocus(pA,pB,name){
+  const a=pA[Math.random()<0.5?0:1], b=pB[Math.random()<0.5?0:1];
+  let o=[a,b];
+  if(Math.random()<CONFIG.MUTATION_RATE){ o[Math.random()<0.5?0:1]=!o[Math.random()<0.5?0:1]; }
+  if(CONFIG.LOCKED_TRAITS.includes(name)&&!o[0]&&!o[1]){
+    if(Math.random()<CONFIG.NEW_TRAIT_CHANCE) o[0]=true;
+  }
+  return o;
+}
+
+let _nid=1;
+function buildOrganism(genotype, generation){
+  const d=CONFIG.LOCUS_DOMINANCE;
+  const phenotype={
+    color_intensity:  expressLocus(genotype.color_intensity, d.color_intensity),
+    body_size:        expressLocus(genotype.body_size,       d.body_size),
+    fin_size:         expressLocus(genotype.fin_size,        d.fin_size),
+    tail_pattern:     expressLocus(genotype.tail_pattern,    d.tail_pattern),
+    shoaling:         expressLocus(genotype.shoaling,        d.shoaling),
+    foraging:         expressLocus(genotype.foraging,        d.foraging),
+    maturation_speed: expressLocus(genotype.maturation,      d.maturation),
+  };
+  return {
+    id: _nid++, generation, age:0, alive:true,
+    sex: Math.random()<0.5?"M":"F",
+    genotype, phenotype,
+    fitness:{ metabolic_cost:0, detection_risk:0, swim_efficiency:0,
+              energy_net:0, survival_probability:0, reproductive_opportunity:0, score:0 },
+    // Visual state
+    _x:0, _y:0, _vx:0, _vy:0, _angle:0, _wobble:0, _wobbleSpeed:0,
+  };
+}
+
+function createFoundingOrganism(){
+  const locked=CONFIG.LOCKED_TRAITS;
+  const g={
+    color_intensity: randFoundingLocus(locked.includes("color_intensity")),
+    body_size:       randFoundingLocus(locked.includes("body_size")),
+    fin_size:        randFoundingLocus(locked.includes("fin_size")),
+    tail_pattern:    randFoundingLocus(locked.includes("tail_pattern")),
+    shoaling:        randFoundingLocus(locked.includes("shoaling")),
+    foraging:        randFoundingLocus(locked.includes("foraging")),
+    maturation:      randFoundingLocus(locked.includes("maturation")),
+  };
+  return buildOrganism(g,0);
+}
+
+function createOffspring(pA,pB,gen){
+  const g={};
+  for(const k of Object.keys(pA.genotype)) g[k]=inheritLocus(pA.genotype[k],pB.genotype[k],k);
+  return buildOrganism(g,gen);
+}
+
+function calculateFitness(org,env,popDensity){
+  const p=org.phenotype, f=org.fitness;
+  const tf=normalise(env.temperature,10,38);
+  const dd=0.3+p.body_size*0.4;
+  const disDrain=env.disease_active?CONFIG.DISEASE_ENERGY_DRAIN*env.disease_severity:0;
+  f.metabolic_cost=clamp(dd*(0.6+tf*0.8)+disDrain);
+  const vb=p.color_intensity*0.55+p.fin_size*0.25+p.body_size*0.20;
+  const cm=0.4+env.water_clarity*0.6;
+  f.detection_risk=clamp(vb*cm*(0.3+env.predator_pressure*0.7));
+  f.swim_efficiency=clamp(1-(env.current_strength*p.fin_size*0.5)-(env.current_strength*p.body_size*0.3));
+  const fy=0.3+p.foraging*0.7;
+  const fa=env.food_density*(1-popDensity*0.4);
+  const fg=clamp(fy*fa);
+  f.energy_net=clamp(fg*f.swim_efficiency-f.metabolic_cost+0.5);
+  const gd=p.shoaling*env.predator_pressure*0.3;
+  const dm=env.disease_active?CONFIG.DISEASE_MORTALITY*env.disease_severity:0;
+  f.survival_probability=clamp(1-f.detection_risk*0.7+gd-dm-(f.energy_net<0.3?0.2:0));
+  let rs;
+  if(org.sex==="M"){
+    const att=p.color_intensity*0.5+p.fin_size*0.3+p.tail_pattern*0.2;
+    rs=lerp(0.5,att,env.mate_selectivity);
+  } else {
+    rs=clamp(f.energy_net*0.6+p.maturation_speed*0.4);
+  }
+  f.reproductive_opportunity=clamp(rs*(1-popDensity*0.3));
+  const w=CONFIG.FITNESS_WEIGHTS;
+  f.score=clamp(f.energy_net*w.energy_net+f.survival_probability*w.survival_probability+f.reproductive_opportunity*w.reproductive_opportunity);
+  return org;
+}
+
+function selectParent(cands){
+  const tot=cands.reduce((s,o)=>s+o.fitness.score,0);
+  if(tot===0) return cands[Math.floor(Math.random()*cands.length)];
+  let r=Math.random()*tot;
+  for(const o of cands){ r-=o.fitness.score; if(r<=0) return o; }
+  return cands[cands.length-1];
+}
+
+function compileStats(pop,gen){
+  if(!pop.length) return null;
+  const traits=["color_intensity","body_size","fin_size","tail_pattern","shoaling","foraging","maturation_speed"];
+  const ff=["metabolic_cost","detection_risk","swim_efficiency","energy_net","survival_probability","reproductive_opportunity","score"];
+  const st={generation:gen,population_size:pop.length,traits:{},fitness:{},allele_frequencies:{},sex_ratio:{},locked_traits_unlocked:[]};
+  function fs(vals){ const n=vals.length,avg=vals.reduce((s,v)=>s+v,0)/n,mn=Math.min(...vals),mx=Math.max(...vals),va=vals.reduce((s,v)=>s+(v-avg)**2,0)/n; return{avg:rnd(avg),min:rnd(mn),max:rnd(mx),variance:rnd(va),n}; }
+  for(const t of traits) st.traits[t]=fs(pop.map(o=>o.phenotype[t]));
+  for(const f of ff)    st.fitness[f]=fs(pop.map(o=>o.fitness[f]));
+  for(const k of Object.keys(pop[0].genotype)){ const all=pop.flatMap(o=>o.genotype[k]); st.allele_frequencies[k]=all.filter(Boolean).length/all.length; }
+  st.sex_ratio={male:pop.filter(o=>o.sex==="M").length,female:pop.filter(o=>o.sex==="F").length};
+  st.locked_traits_unlocked=CONFIG.LOCKED_TRAITS.filter(l=>pop.some(o=>o.genotype[l][0]||o.genotype[l][1]));
+  return st;
+}
+
+function runGeneration(pop,env,gen){
+  const events=[];
+  pop.forEach(o=>o.age++);
+  pop=pop.filter(o=>o.age<=CONFIG.MAX_AGE_GENERATIONS);
+  if(!pop.length) return{population:[],stats:null,events:["EXTINCTION"]};
+  const pd=clamp(pop.length/CONFIG.MAX_POPULATION);
+  pop.forEach(o=>calculateFitness(o,env,pd));
+  if(env.disease_active&&env.disease_severity>0){
+    const k=Math.floor(pop.length*CONFIG.DISEASE_MORTALITY*env.disease_severity);
+    pop.sort((a,b)=>a.fitness.score-b.fitness.score);
+    pop.splice(0,k);
+    events.push(`🦠 Disease killed ${k} (severity ${env.disease_severity.toFixed(2)})`);
+  }
+  const surv=pop.filter(o=>Math.random()<o.fitness.survival_probability);
+  if(surv.length<CONFIG.MIN_POPULATION){ events.push("EXTINCTION: population below threshold"); return{population:[],stats:null,events}; }
+  const males=surv.filter(o=>o.sex==="M"), females=surv.filter(o=>o.sex==="F");
+  if(!males.length||!females.length){ events.push("EXTINCTION: no mating pairs"); return{population:[],stats:null,events}; }
+  const offspring=[];
+  const tgt=Math.min(Math.max(surv.length,CONFIG.INITIAL_POPULATION*0.5),CONFIG.MAX_POPULATION);
+  const pairs=Math.max(1,Math.floor((tgt-surv.length)/CONFIG.BASE_OFFSPRING));
+  for(let i=0;i<pairs;i++){
+    const mo=selectParent(females), fa=selectParent(males);
+    const n=CONFIG.BASE_OFFSPRING+Math.round((mo.phenotype.maturation_speed-0.5)*2);
+    for(let j=0;j<Math.max(1,n);j++){
+      if(surv.length+offspring.length>=CONFIG.MAX_POPULATION) break;
+      offspring.push(createOffspring(mo,fa,gen));
+    }
+  }
+  const newPop=[...surv,...offspring];
+  events.push(`Gen ${gen}: ${surv.length} survived, ${offspring.length} born`);
+  return{population:newPop,stats:compileStats(newPop,gen),events};
+}
+
+function tickDiseaseEvent(env){
+  if(env.disease_active){ if(Math.random()<0.70){env.disease_active=false;env.disease_severity=0;} return env.disease_active; }
+  if(Math.random()<CONFIG.DISEASE_BASE_CHANCE){ env.disease_active=true; env.disease_severity=0.3+Math.random()*0.7; return true; }
+  return false;
+}
+
+function createSimulation(overrides={}){
+  _nid=1;
+  const env={...DEFAULT_ENVIRONMENT,...overrides};
+  const pop=Array.from({length:CONFIG.INITIAL_POPULATION},()=>createFoundingOrganism());
+  const pd=clamp(pop.length/CONFIG.MAX_POPULATION);
+  pop.forEach(o=>calculateFitness(o,env,pd));
+  return{generation:0,population:pop,environment:env,history:[compileStats(pop,0)],eventLog:[],extinct:false};
+}
+
+function stepSimulation(sim,envDelta={}){
+  if(sim.extinct) return sim;
+  Object.assign(sim.environment,envDelta);
+  tickDiseaseEvent(sim.environment);
+  sim.generation++;
+  const{population,stats,events}=runGeneration(sim.population,sim.environment,sim.generation);
+  sim.population=population;
+  sim.eventLog.push(...events);
+  if(events.some(e=>e.includes("EXTINCTION"))||!population.length){ sim.extinct=true; return sim; }
+  sim.history.push(stats);
+  return sim;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL ENGINE — fish rendering
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const canvas = document.getElementById('pondCanvas');
+const ctx    = canvas.getContext('2d');
+
+function resizeCanvas(){
+  const wrap = document.getElementById('pondWrap');
+  canvas.width  = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// Assign random position/velocity to a new organism
+function initVisuals(org, W, H){
+  org._x = 40 + Math.random()*(W-80);
+  org._y = 40 + Math.random()*(H-80);
+  const speed = 0.4 + Math.random()*0.6;
+  const angle = Math.random()*Math.PI*2;
+  org._vx = Math.cos(angle)*speed;
+  org._vy = Math.sin(angle)*speed;
+  org._angle = angle;
+  org._wobble = Math.random()*Math.PI*2;
+  org._wobbleSpeed = 0.04 + Math.random()*0.04;
+}
+
+// Derive fish body color from phenotype
+function fishColor(org, diseaseActive){
+  const p = org.phenotype;
+  // Hue: base orange for males (shifts by tail_pattern), blue-green for females
+  const isMale = org.sex === "M";
+
+  let h, s, l;
+  if(isMale){
+    // Males: orange→yellow→red spectrum shifted by tail_pattern and color_intensity
+    h = 20 + p.tail_pattern * 40;          // 20 (orange) → 60 (yellow)
+    s = 40 + p.color_intensity * 55;       // dull → vivid
+    l = 35 + p.color_intensity * 25;       // dark → bright
+  } else {
+    // Females: olive/grey, subtle
+    h = 80 + p.tail_pattern * 20;
+    s = 15 + p.color_intensity * 25;
+    l = 38 + p.color_intensity * 12;
+  }
+
+  // Disease tints fish slightly grey-green
+  if(diseaseActive){
+    h = lerp(h, 120, 0.35);
+    s = lerp(s, 20, 0.4);
+  }
+
+  return `hsl(${h|0},${s|0}%,${l|0}%)`;
+}
+
+function fishGlowColor(org){
+  if(org.fitness.score > 0.7) return 'rgba(74,222,128,0.25)';
+  if(org.fitness.score < 0.3) return 'rgba(248,113,113,0.20)';
+  return null;
+}
+
+// Draw a single fish at (x,y) facing angle, sized by body_size
+function drawFish(org, diseaseActive){
+  const p = org.phenotype;
+  const x = org._x, y = org._y;
+  const angle = org._angle;
+  const bodyLen = 7 + p.body_size * 10;   // 7–17px
+  const bodyH   = bodyLen * 0.38;
+  const finH    = bodyH * (0.5 + p.fin_size * 0.9);
+  const wobble  = Math.sin(org._wobble) * 0.18;
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle + wobble);
+
+  // Glow for high/low fitness
+  const glow = fishGlowColor(org);
+  if(glow){
+    ctx.shadowColor = glow.replace('0.25','0.7').replace('0.20','0.6');
+    ctx.shadowBlur = 8;
+  }
+
+  const fc = fishColor(org, diseaseActive);
+
+  // Tail
+  ctx.beginPath();
+  ctx.moveTo(-bodyLen*0.5, 0);
+  ctx.lineTo(-bodyLen*1.1, -finH*0.9);
+  ctx.lineTo(-bodyLen*1.1,  finH*0.9);
+  ctx.closePath();
+  ctx.fillStyle = fc;
+  ctx.globalAlpha = 0.75;
+  ctx.fill();
+
+  // Body (ellipse)
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, bodyLen*0.55, bodyH, 0, 0, Math.PI*2);
+  ctx.fillStyle = fc;
+  ctx.fill();
+
+  // Dorsal fin (males only if fin_size expressed)
+  if(org.sex==="M" && p.fin_size > 0.1){
+    ctx.beginPath();
+    ctx.moveTo(-bodyLen*0.1, -bodyH);
+    ctx.quadraticCurveTo(bodyLen*0.15, -bodyH-finH*1.1, bodyLen*0.3, -bodyH*0.3);
+    ctx.quadraticCurveTo(bodyLen*0.1, -bodyH*0.5, -bodyLen*0.1, -bodyH);
+    ctx.fillStyle = fc;
+    ctx.globalAlpha = 0.6;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // Tail pattern (dots) if trait expressed
+  if(p.tail_pattern > 0.3){
+    const spots = Math.floor(p.tail_pattern * 4);
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    for(let i=0;i<spots;i++){
+      const sx = -bodyLen*0.35 + i*(bodyLen*0.18);
+      const sy = (Math.sin(i*1.3)*bodyH*0.4);
+      ctx.beginPath();
+      ctx.arc(sx, sy, 1.2, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  // Eye
+  ctx.beginPath();
+  ctx.arc(bodyLen*0.28, -bodyH*0.25, 1.4, 0, Math.PI*2);
+  ctx.fillStyle = '#fff';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(bodyLen*0.30, -bodyH*0.25, 0.7, 0, Math.PI*2);
+  ctx.fillStyle = '#111';
+  ctx.fill();
+
+  ctx.restore();
+}
+
+// Move fish with simple flocking + boundary avoidance
+function updateFishPosition(org, pop, W, H, env){
+  const speed = (0.5 + org.phenotype.maturation_speed * 0.8) *
+                (1 - env.current_strength * 0.3);
+
+  // Shoaling: steer toward neighbors
+  if(org.phenotype.shoaling > 0.3 && pop.length > 1){
+    let cx=0, cy=0, n=0;
+    for(const o of pop){
+      if(o===org) continue;
+      const dx=o._x-org._x, dy=o._y-org._y;
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      if(dist<80){ cx+=o._x; cy+=o._y; n++; }
+    }
+    if(n>0){
+      cx/=n; cy/=n;
+      org._vx += (cx-org._x)*0.002*org.phenotype.shoaling;
+      org._vy += (cy-org._y)*0.002*org.phenotype.shoaling;
+    }
+  }
+
+  // Random wander
+  org._vx += (Math.random()-0.5)*0.08;
+  org._vy += (Math.random()-0.5)*0.08;
+
+  // Current drift (rightward)
+  org._vx += env.current_strength * 0.15;
+
+  // Clamp speed
+  const spd = Math.sqrt(org._vx**2+org._vy**2);
+  if(spd>speed){ org._vx=org._vx/spd*speed; org._vy=org._vy/spd*speed; }
+  if(spd<0.15){ org._vx*=1.1; org._vy*=1.1; }
+
+  // Boundary repulsion
+  const margin=30;
+  if(org._x<margin) org._vx+=0.3;
+  if(org._x>W-margin) org._vx-=0.3;
+  if(org._y<margin) org._vy+=0.3;
+  if(org._y>H-margin) org._vy-=0.3;
+
+  org._x = clamp(org._x+org._vx, 5, W-5);
+  org._y = clamp(org._y+org._vy, 5, H-5);
+
+  // Facing angle
+  if(spd>0.05) org._angle = Math.atan2(org._vy, org._vx);
+  org._wobble += org._wobbleSpeed;
+}
+
+// Draw underwater background
+function drawBackground(W, H, env, diseaseActive){
+  // Water gradient
+  const grad = ctx.createLinearGradient(0,0,0,H);
+  if(diseaseActive){
+    grad.addColorStop(0,'#0d2318');
+    grad.addColorStop(1,'#061610');
+  } else {
+    const clarity = env.water_clarity;
+    const r1 = Math.round(13+clarity*10), g1=Math.round(33+clarity*20), b1=Math.round(64+clarity*30);
+    const r2 = Math.round(8+clarity*5),   g2=Math.round(18+clarity*10), b2=Math.round(40+clarity*15);
+    grad.addColorStop(0,`rgb(${r1},${g1},${b1})`);
+    grad.addColorStop(1,`rgb(${r2},${g2},${b2})`);
+  }
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,W,H);
+
+  // Caustic light shimmer (subtle)
+  ctx.globalAlpha = 0.03 + env.water_clarity*0.04;
+  const t = Date.now()/2000;
+  for(let i=0;i<6;i++){
+    const lx = (W*0.15*i + Math.sin(t+i)*40) % W;
+    const ly = H*0.1 + Math.sin(t*0.7+i)*H*0.05;
+    const lr = ctx.createRadialGradient(lx,ly,0,lx,ly,60+i*10);
+    lr.addColorStop(0,'rgba(180,230,255,1)');
+    lr.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=lr; ctx.fillRect(0,0,W,H);
+  }
+  ctx.globalAlpha=1;
+
+  // Seabed suggestion
+  const bed=ctx.createLinearGradient(0,H-30,0,H);
+  bed.addColorStop(0,'rgba(0,0,0,0)');
+  bed.addColorStop(1,'rgba(8,20,40,0.7)');
+  ctx.fillStyle=bed; ctx.fillRect(0,H-30,W,30);
+
+  // Plants
+  drawPlants(W,H,env);
+}
+
+// Simple procedural plants
+const PLANT_SEED = Array.from({length:12},(_,i)=>({
+  x: 0.05+i*0.08+Math.sin(i*1.7)*0.03,
+  h: 0.06+Math.abs(Math.sin(i*2.3))*0.10,
+  sw: 2+Math.abs(Math.sin(i*1.1))*2,
+}));
+
+function drawPlants(W,H,env){
+  const t=Date.now()/1800;
+  PLANT_SEED.forEach((p,i)=>{
+    const x=p.x*W, h=p.h*H, sw=p.sw;
+    const sway=Math.sin(t+i*0.7)*env.current_strength*8;
+    ctx.beginPath();
+    ctx.moveTo(x,H);
+    ctx.quadraticCurveTo(x+sway*0.5,H-h*0.5,x+sway,H-h);
+    ctx.strokeStyle=`rgba(${20+i*3},${80+i*4},${40+i*2},0.55)`;
+    ctx.lineWidth=sw;
+    ctx.lineCap='round';
+    ctx.stroke();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CHART RENDERING (mini line charts on <canvas>)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function drawMiniChart(canvasEl, dataArr, color='#2dd4bf', min=0, max=1, secondDataArr=null, secondColor='#f59e0b'){
+  const w=canvasEl.clientWidth, h=canvasEl.clientHeight;
+  canvasEl.width=w; canvasEl.height=h;
+  const c=canvasEl.getContext('2d');
+  c.clearRect(0,0,w,h);
+  if(!dataArr||dataArr.length<2) return;
+
+  // Grid lines
+  c.strokeStyle='rgba(255,255,255,0.05)'; c.lineWidth=1;
+  [0.25,0.5,0.75].forEach(t=>{ const y=h-(h*t); c.beginPath(); c.moveTo(0,y); c.lineTo(w,y); c.stroke(); });
+
+  function drawLine(data, col){
+    const n=data.length;
+    const span=Math.max(max-min,0.001);
+    c.beginPath();
+    data.forEach((v,i)=>{
+      const x=(i/(n-1))*w;
+      const y=h-((v-min)/span)*(h*0.88)-h*0.06;
+      i===0?c.moveTo(x,y):c.lineTo(x,y);
+    });
+    c.strokeStyle=col; c.lineWidth=1.8; c.lineJoin='round'; c.lineCap='round';
+    c.shadowColor=col; c.shadowBlur=4;
+    c.stroke();
+    c.shadowBlur=0;
+
+    // Fill
+    c.beginPath();
+    data.forEach((v,i)=>{ const x=(i/(n-1))*w, y=h-((v-min)/span)*(h*0.88)-h*0.06; i===0?c.moveTo(x,y):c.lineTo(x,y); });
+    c.lineTo(w,h); c.lineTo(0,h); c.closePath();
+    const grad=c.createLinearGradient(0,0,0,h);
+    grad.addColorStop(0,col.replace(')',',0.18)').replace('rgb','rgba').replace('#2dd4bf','rgba(45,212,191,0.18)').replace('#f59e0b','rgba(245,158,11,0.18)').replace('#4ade80','rgba(74,222,128,0.18)').replace('#f87171','rgba(248,113,113,0.18)'));
+    grad.addColorStop(1,'rgba(0,0,0,0)');
+    c.fillStyle=grad; c.fill();
+  }
+
+  drawLine(dataArr, color);
+  if(secondDataArr&&secondDataArr.length>1) drawLine(secondDataArr, secondColor);
+
+  // Latest value label
+  const last=dataArr[dataArr.length-1];
+  c.fillStyle=color;
+  c.font='bold 10px system-ui';
+  c.textAlign='right';
+  c.fillText(last.toFixed?last.toFixed(2):last, w-4, 12);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ALLELE FREQUENCY BAR RENDERING
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const LOCUS_COLORS = {
+  color_intensity: '#f59e0b',
+  body_size:       '#4ade80',
+  fin_size:        '#2dd4bf',
+  tail_pattern:    '#a78bfa',
+  shoaling:        '#60a5fa',
+  foraging:        '#fb923c',
+  maturation:      '#f472b6',
+};
+const LOCUS_LABELS = {
+  color_intensity: 'Color intensity',
+  body_size:       'Body size',
+  fin_size:        'Fin size',
+  tail_pattern:    'Tail pattern',
+  shoaling:        'Shoaling',
+  foraging:        'Foraging',
+  maturation:      'Maturation',
+};
+
+function renderAlleleBars(freqs){
+  const container = document.getElementById('alleleBars');
+  container.innerHTML='';
+  for(const [key,freq] of Object.entries(freqs)){
+    const pct = (freq*100).toFixed(0);
+    const color = LOCUS_COLORS[key]||'#2dd4bf';
+    const label = LOCUS_LABELS[key]||key;
+    const locked = CONFIG.LOCKED_TRAITS.includes(key) && freq < 0.01;
+    const row = document.createElement('div');
+    row.className='allele-row';
+    row.innerHTML=`
+      <span class="allele-name">${label}${locked?' 🔒':''}</span>
+      <div class="allele-track"><div class="allele-fill" style="width:${pct}%;background:${color}"></div></div>
+      <span class="allele-pct">${pct}%</span>`;
+    container.appendChild(row);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MAIN APP STATE & LOOP
+// ═══════════════════════════════════════════════════════════════════════════════
+
+let sim = createSimulation();
+let running = false;
+let intervalId = null;
+let simSpeed = 900; // ms between generations
+let animFrameId = null;
+
+// Initialise visual positions for founding population
+function initAllVisuals(){
+  const W=canvas.width, H=canvas.height;
+  sim.population.forEach(o=>initVisuals(o,W,H));
+}
+initAllVisuals();
+
+// Animation loop — runs independently of generation stepping
+function animLoop(){
+  const W=canvas.width, H=canvas.height;
+  const env=sim.environment;
+  const disease=env.disease_active;
+
+  drawBackground(W,H,env,disease);
+
+  sim.population.forEach(o=>{
+    updateFishPosition(o,sim.population,W,H,env);
+    drawFish(o,disease);
+  });
+
+  animFrameId=requestAnimationFrame(animLoop);
+}
+animLoop();
+
+// Tooltip on hover
+canvas.addEventListener('mousemove',e=>{
+  const rect=canvas.getBoundingClientRect();
+  const mx=(e.clientX-rect.left)*(canvas.width/rect.width);
+  const my=(e.clientY-rect.top)*(canvas.height/rect.height);
+  let closest=null, minD=999;
+  for(const o of sim.population){
+    const d=Math.hypot(o._x-mx,o._y-my);
+    if(d<minD){minD=d;closest=o;}
+  }
+  const tip=document.getElementById('tooltip');
+  if(closest&&minD<22){
+    const p=closest.phenotype, f=closest.fitness;
+    tip.style.display='block';
+    tip.style.left=(e.clientX-rect.left+12)+'px';
+    tip.style.top=(e.clientY-rect.top-8)+'px';
+    tip.innerHTML=`<b>${closest.sex==="M"?"♂ Male":"♀ Female"}</b> · Gen ${closest.generation}<br>
+Color: ${(p.color_intensity*100).toFixed(0)}% · Fin: ${(p.fin_size*100).toFixed(0)}%<br>
+Body: ${(p.body_size*100).toFixed(0)}% · Tail: ${(p.tail_pattern*100).toFixed(0)}%<br>
+Shoaling: ${(p.shoaling*100).toFixed(0)}% · Foraging: ${(p.foraging*100).toFixed(0)}%<br>
+<b>Fitness: ${f.score.toFixed(3)}</b> · Surv: ${(f.survival_probability*100).toFixed(0)}%<br>
+Energy: ${f.energy_net.toFixed(2)} · Detection: ${(f.detection_risk*100).toFixed(0)}%`;
+  } else {
+    tip.style.display='none';
+  }
+});
+canvas.addEventListener('mouseleave',()=>{ document.getElementById('tooltip').style.display='none'; });
+
+// ── Step one generation ────────────────────────────────────────────────────────
+function doStep(){
+  stepSimulation(sim);
+
+  // Init visuals for newborns
+  const W=canvas.width, H=canvas.height;
+  sim.population.filter(o=>!o._vx&&!o._vy).forEach(o=>initVisuals(o,W,H));
+
+  updateUI();
+
+  if(sim.extinct){
+    stopRunning();
+    document.getElementById('extinctOverlay').classList.add('show');
+  }
+}
+
+// ── UI update ─────────────────────────────────────────────────────────────────
+function updateUI(){
+  const gen=sim.generation;
+  const pop=sim.population.length;
+  const stats=sim.history[sim.history.length-1];
+  const env=sim.environment;
+
+  document.getElementById('genNum').textContent=gen;
+  document.getElementById('popNum').textContent=pop;
+  document.getElementById('overlayPop').textContent=pop;
+
+  if(stats){
+    const avgFit=stats.fitness.score.avg.toFixed(3);
+    document.getElementById('overlayFit').textContent=avgFit;
+    document.getElementById('st_surv').textContent=(stats.fitness.survival_probability.avg*100).toFixed(1)+'%';
+    document.getElementById('st_energy').textContent=stats.fitness.energy_net.avg.toFixed(3);
+    document.getElementById('st_detect').textContent=(stats.fitness.detection_risk.avg*100).toFixed(1)+'%';
+    document.getElementById('st_sex').textContent=`${stats.sex_ratio.male}:${stats.sex_ratio.female}`;
+
+    // Charts
+    const h=sim.history;
+    drawMiniChart(document.getElementById('chartPop'), h.map(s=>s.population_size), '#4ade80', 0, CONFIG.MAX_POPULATION);
+    drawMiniChart(document.getElementById('chartFit'), h.map(s=>s.fitness.score.avg), '#2dd4bf');
+    drawMiniChart(document.getElementById('chartColor'), h.map(s=>s.traits.color_intensity.avg), '#f59e0b');
+    drawMiniChart(document.getElementById('chartBody'), h.map(s=>s.traits.body_size.avg), '#60a5fa');
+    drawMiniChart(
+      document.getElementById('chartBehav'),
+      h.map(s=>s.traits.shoaling.avg), '#2dd4bf', 0, 1,
+      h.map(s=>s.traits.foraging.avg), '#f59e0b'
+    );
+    renderAlleleBars(stats.allele_frequencies);
+  }
+
+  // Disease badge
+  const db=document.getElementById('diseaseBadge');
+  db.style.display=env.disease_active?'block':'none';
+
+  // Event log
+  const log=document.getElementById('eventLog');
+  const latest=sim.eventLog.slice(-1)[0];
+  if(latest){
+    const div=document.createElement('div');
+    const isDis=latest.includes('Disease')||latest.includes('🦠');
+    const isMut=latest.includes('UNLOCK')||latest.includes('unlocked');
+    const isExt=latest.includes('EXTINCTION');
+    div.className='ev'+(isDis?' ev-disease':isMut?' ev-mutation':isExt?' ev-extinction':'');
+    div.textContent=latest;
+    log.appendChild(div);
+    log.scrollTop=log.scrollHeight;
+  }
+
+  // Mutation events
+  if(stats?.locked_traits_unlocked?.length){
+    stats.locked_traits_unlocked.forEach(t=>{
+      if(!sim._announcedUnlocks) sim._announcedUnlocks=new Set();
+      if(!sim._announcedUnlocks.has(t+gen)){
+        sim._announcedUnlocks.add(t+gen);
+        const div=document.createElement('div');
+        div.className='ev ev-mutation';
+        div.textContent=`✨ Mutation: "${LOCUS_LABELS[t]||t}" emerged in population!`;
+        log.appendChild(div);
+        log.scrollTop=log.scrollHeight;
+      }
+    });
+  }
+}
+
+// ── Playback controls ─────────────────────────────────────────────────────────
+function startRunning(){
+  if(running) return;
+  running=true;
+  document.getElementById('btnPlay').textContent='⏸ Pause';
+  intervalId=setInterval(doStep, simSpeed);
+}
+function stopRunning(){
+  running=false;
+  document.getElementById('btnPlay').textContent='▶ Run';
+  if(intervalId){ clearInterval(intervalId); intervalId=null; }
+}
+function resetSim(){
+  stopRunning();
+  document.getElementById('extinctOverlay').classList.remove('show');
+  document.getElementById('eventLog').innerHTML='<div class="ev">Population reset — generation 0.</div>';
+  sim=createSimulation();
+  initAllVisuals();
+  updateUI();
+  // Clear charts
+  ['chartPop','chartFit','chartColor','chartBody','chartBehav'].forEach(id=>{
+    const el=document.getElementById(id);
+    el.getContext('2d').clearRect(0,0,el.width,el.height);
+  });
+}
+
+document.getElementById('btnPlay').addEventListener('click',()=>{ running?stopRunning():startRunning(); });
+document.getElementById('btnStep').addEventListener('click',()=>{ stopRunning(); doStep(); });
+document.getElementById('btnReset').addEventListener('click',resetSim);
+document.getElementById('btnResetExtinct').addEventListener('click',resetSim);
+document.getElementById('btnDisease').addEventListener('click',()=>{
+  sim.environment.disease_active=true;
+  sim.environment.disease_severity=0.6+Math.random()*0.35;
+  const log=document.getElementById('eventLog');
+  const div=document.createElement('div');
+  div.className='ev ev-disease';
+  div.textContent=`⚠ Disease triggered manually (severity ${sim.environment.disease_severity.toFixed(2)})`;
+  log.appendChild(div); log.scrollTop=log.scrollHeight;
+  document.getElementById('diseaseBadge').style.display='block';
+});
+
+// Speed buttons
+document.querySelectorAll('.speed-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.speed-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    simSpeed=parseInt(btn.dataset.ms);
+    if(running){ stopRunning(); startRunning(); }
+  });
+});
+
+// ── Slider wiring ─────────────────────────────────────────────────────────────
+function wireSlider(id, valId, envKey, format, multiplier=1){
+  const sl=document.getElementById(id), vl=document.getElementById(valId);
+  sl.addEventListener('input',()=>{
+    const v=parseFloat(sl.value)*multiplier;
+    sim.environment[envKey]=v;
+    vl.textContent=format(v);
+  });
+}
+wireSlider('sl_temp',   'sv_temp',    'temperature',      v=>v+'°');
+wireSlider('sl_clarity','sv_clarity', 'water_clarity',    v=>v.toFixed(2));
+wireSlider('sl_current','sv_current', 'current_strength', v=>v.toFixed(2));
+wireSlider('sl_pred',   'sv_pred',    'predator_pressure',v=>v.toFixed(2));
+wireSlider('sl_mate',   'sv_mate',    'mate_selectivity', v=>v.toFixed(2));
+wireSlider('sl_food',   'sv_food',    'food_density',     v=>v.toFixed(2));
+
+// Initial UI render
+updateUI();
+</script>
+</body>
+</html>
